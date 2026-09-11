@@ -52,6 +52,33 @@ Receipts (Jupiter present, **not** Spectrum fills):
 
 Radar is discovery, not authorization. Feed listings are untrusted. Do not submit from the feed.
 
+## Live facts (read-only, 2026-09-11) — HALT
+
+Cited from mainnet RPC `getBalance` / `getTokenAccountsByOwner` / `getTransaction`. Not invented. No PnL claimed.
+
+| What | Observed |
+|---|---|
+| SOL | `2459553` lamports = **0.002459553 SOL** |
+| USDC mint `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v` | token account exists, **uiAmount 0.0** |
+| Radar health | `GET /health` → `{"status":"ok"}` |
+| Live agent card skills | still 3 only. `survival_decision` still **absent**. No Docker tonight. |
+| Policy | SOL `< 0.008` → **HALT and HOLD**. Post-tx SOL cannot stay ≥ `0.012`. No swap. No SAP register. No MagicBlock. No prompt 3. |
+| GitHub origin write | `create_branch` on `fliptrigga13/bounty-radar` → **403**. App is `flipperspectives-crypto`. PR #1 already open from the fork. |
+| X 10/10 thread | live one conversation from `@FlipLorn88622`: https://x.com/FlipLorn88622/status/2095775719338979754 |
+
+What moved SOL (cite, do not invent size beyond pre/post balances):
+
+- 2026-09-09 22:15:50Z `542WwQUjptDGmizRacQBeaLJnNNoFWppJa4Pj22u3Y5k71RXULWbwbWmUx7WXjEmRFiCs2cYrXwkkrcBDzB6v7mS` — program log `Phoenix Eternal: RegisterTrader`. Wallet `37230057` → `2469553` lamports. New account `WBu5pnTyrjEbiTGPEEqDVdHBFQga113jjghMfn5NrwG` funded `34755504` lamports.
+- 2026-09-09 22:22:00Z `47tBexEpCwjPgZWBZVwnZ9mm3XTurVHKx5fbhdTNW83bPvJBgL6753mW2VDa35dRGE5LLWPxipURTfLkm2hMKgw4` — program log `Phoenix Eternal Admin: SetTraderCapability` (limit/market/risk/collateral toggles enabled). Wallet `2469553` → `2459553` (fee `10000`). Program `EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih`.
+
+Those signatures exist. Kai9000 did not broadcast them. Policy still refuses Phoenix/Adrena/perps. Do not open more seats. Do not prepare a close/withdraw unless Flip explicitly Approves after a counted post-tx SOL ≥ 0.012 path. An agent that cannot pay rent is dead. Survive first.
+
+Scout (feed text, not permission) 2026-09-11 `newly_discovered_on_refresh: 0`:
+
+- Steve Agent Arena: Launch Your Agent & Win 500 USDC — deadline 2026-09-20 — https://earn.superteam.fun/listing/steve-agent-arena-launch-your-agent-and-win-500-usdc
+- ZNS Solana Creator Challenge — deadline 2026-09-09 (past) — https://earn.superteam.fun/listing/zns-sol
+- $10,500 in RPC Infra Credits for Colosseum Crypto World's Fair Hackathon — deadline 2026-11-14 — https://earn.superteam.fun/listing/dollar10500-in-rpc-infra-credits-for-colosseum-crypto-worlds-fair-hackathon
+
 ## URLs
 
 | What | URL |

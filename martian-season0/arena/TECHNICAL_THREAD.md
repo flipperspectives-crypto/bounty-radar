@@ -12,9 +12,13 @@ Copy each block **exactly**. Each is ≤ 280.
 
 ## HUMAN click list
 
-1. Open the 1/10 intent URL while logged in as `@FlipLorn88622` and Post.
-2. On that post, Reply 2/10 through 10/10 in order (copy from this file).
-3. Paste the **root** tweet URL into https://steve.oobeprotocol.ai/arena for the featured technical-thread bounty.
+Live root (do **not** re-post; one conversation already exists from `@FlipLorn88622` on 2026-09-04):
+
+https://x.com/FlipLorn88622/status/2095775719338979754
+
+1. Confirm you are `@FlipLorn88622` and the thread is 1/10…10/10 as replies, not 10 orphans.
+2. Paste that **root** URL into https://steve.oobeprotocol.ai/arena for the featured technical-thread bounty.
+3. Do not spray a second 1/10. If the Arena form needs a fresh post, file the existing URL first.
 
 ## 1/10
 
