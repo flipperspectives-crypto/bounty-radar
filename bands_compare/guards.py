@@ -88,6 +88,8 @@ class GuardEngine:
             )
 
         if action in {"OPEN", "MOVE"}:
+            if bool(g.get("wash_volume_veto", False)) and getattr(features, "wash_reasons", ()):
+                tripped.append("wash_volume_veto")
             if abs(features.recent_price_change) >= float(g["abnormal_price_move_veto"]):
                 tripped.append("abnormal_price_move_veto")
             slippage = float(getattr(features, "estimated_slippage", 0.0) or 0.0)

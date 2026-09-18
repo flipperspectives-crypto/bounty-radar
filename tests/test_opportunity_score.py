@@ -75,6 +75,19 @@ class TestOpportunityScore(unittest.TestCase):
         self.assertGreaterEqual(result.score, 0.0)
         self.assertLessEqual(result.score, 1.0)
 
+    def test_fee_quality_uses_active_tvl_when_enabled(self):
+        cfg = _cfg_with(lambda c: c.setdefault("features", {}).__setitem__("use_active_tvl", True))
+        idle = derive_features(_snap(fees_24h=80_000.0, tvl=1_000_000.0, active_tvl=1_000_000.0), cfg)
+        concentrated = derive_features(_snap(fees_24h=80_000.0, tvl=1_000_000.0, active_tvl=200_000.0), cfg)
+        a = score_opportunity(idle, cfg)
+        b = score_opportunity(concentrated, cfg)
+        self.assertGreater(b.components["fee_tvl_quality"], a.components["fee_tvl_quality"])
+        self.assertIn("fee_active_tvl", b.features_used)
+
+    def test_baseline_weights_unchanged_by_active_tvl_experiment(self):
+        self.assertEqual(self.cfg["opportunity_weights"]["fee_tvl_quality"], 0.35)
+        self.assertEqual(self.cfg["opportunity_weights"]["volume_tvl_persistence"], 0.20)
+
     def test_higher_fee_tvl_scores_higher(self):
         low = score_opportunity(derive_features(_snap(fees_24h=5_000.0), self.cfg), self.cfg)
         high = score_opportunity(derive_features(_snap(fees_24h=120_000.0), self.cfg), self.cfg)

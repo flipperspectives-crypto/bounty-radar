@@ -18,6 +18,7 @@ from bands_compare.journal import JOURNAL_FIELDS, append_row, read_rows, validat
 from bands_compare.schemas import JournalRow, MrBandsObservation, assert_research_only
 from bands_compare.simulate import (
     capital_allocation_score,
+    decide_ship,
     generate_snapshots,
     run_backtest,
 )
@@ -149,6 +150,57 @@ class TestComparator(unittest.TestCase):
         self.assertEqual(market_sentinel.BREAKOUT_THRESHOLD, 101.10)
         zone, _ = market_sentinel.evaluate_market_condition(99.00)
         self.assertEqual(zone, "OVERSOLD_BOUNCE")
+
+    def test_rug_and_wash_pools_exist_on_tape(self):
+        snaps = generate_snapshots(seed=13)
+        pools = {s.pool for s in snaps}
+        self.assertIn("RUG-SOL", pools)
+        self.assertIn("WASH-SOL", pools)
+        rug = [s for s in snaps if s.pool == "RUG-SOL"]
+        rug.sort(key=lambda s: s.timestamp)
+        early = rug[0].price
+        late = rug[-1].price
+        self.assertLess(late / early, 0.4)
+
+    def test_held_out_seed_differs_from_in_sample(self):
+        a = generate_snapshots(seed=13)
+        b = generate_snapshots(seed=97)
+        self.assertNotEqual(
+            [(s.pool, round(s.price, 8), round(s.volume_24h, 2)) for s in a[:10]],
+            [(s.pool, round(s.price, 8), round(s.volume_24h, 2)) for s in b[:10]],
+        )
+
+    def test_ship_gate_requires_heldout_equity_spearman_and_churn_cap(self):
+        self.assertTrue(
+            decide_ship(
+                control_equity=1000.0,
+                treatment_equity=1010.0,
+                control_spearman=0.40,
+                treatment_spearman=0.50,
+                treatment_recommended_churn=0.40,
+                churn_cap=0.46,
+            )
+        )
+        self.assertFalse(
+            decide_ship(
+                control_equity=1000.0,
+                treatment_equity=990.0,
+                control_spearman=0.40,
+                treatment_spearman=0.50,
+                treatment_recommended_churn=0.40,
+                churn_cap=0.46,
+            )
+        )
+        self.assertFalse(
+            decide_ship(
+                control_equity=1000.0,
+                treatment_equity=1010.0,
+                control_spearman=0.40,
+                treatment_spearman=0.50,
+                treatment_recommended_churn=0.80,
+                churn_cap=0.46,
+            )
+        )
 
     def test_hold_first_reduces_churn_vs_always_act(self):
         snaps = generate_snapshots()

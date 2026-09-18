@@ -1,5 +1,5 @@
 {
-  "_comment": "Independent comparable DLMM LP model. These are NOT Mr Bands private coefficients. All scoring, policy, cost, and guard values are loaded from this file only.",
+  "_comment": "Independent comparable DLMM LP model. These are NOT Mr Bands private coefficients. All scoring, policy, cost, and guard values are loaded from this file only. use_active_tvl and wash_volume_veto were tested on a held-out rug tape and REVERTED (see reports/experiment_active_tvl.md).",
   "opportunity_weights": {
     "fee_tvl_quality": 0.35,
     "volume_tvl_persistence": 0.20,
@@ -47,7 +47,15 @@
     "max_allowed_slippage": 0.01,
     "abnormal_price_move_veto": 0.20,
     "stop_loss": 0.12,
-    "kill_switch": false
+    "kill_switch": false,
+    "wash_volume_veto": false
+  },
+  "wash_volume": {
+    "_comment": "Hard skip for wash-looking prints. Not applied to large-TVL stables via low fee rate alone. Flag shipped off after held-out test.",
+    "max_volume_tvl": 10.0,
+    "min_tvl_usd": 100000.0,
+    "min_tvl_volume_tvl": 5.0,
+    "max_fee_rate": 0.02
   },
   "costs": {
     "sol_usd": 100.0,
@@ -60,13 +68,17 @@
   "features": {
     "lookback_hours": 24.0,
     "default_bin_step": 10.0,
-    "depth_fallback_frac": 0.10
+    "depth_fallback_frac": 0.10,
+    "use_active_tvl": false,
+    "lp_fee_share": 0.90
   },
   "simulation": {
     "seed": 13,
+    "held_out_seed": 97,
     "capital_usd": 1000.0,
     "steps": 24,
     "hours_per_step": 1.0,
+    "churn_cap": 0.46,
     "note": "capital_allocation_score uses a 40/30/30 liquidity/volume/fee mix for harness wallet splits ONLY. It must never be used as the pool opportunity score."
   },
   "mr_bands_public_observer": {

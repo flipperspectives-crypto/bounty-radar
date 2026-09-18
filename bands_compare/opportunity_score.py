@@ -56,7 +56,9 @@ def score_opportunity(features: PoolFeatures, cfg: Mapping[str, Any]) -> ScoreBr
     net_hi = _n(cfg, "net_return_hi", 0.12)
     persist_mix = _n(cfg, "persistence_mix", 0.40)
 
-    fee_q = unit_interval(features.fee_tvl, 0.0, fee_full)
+    use_active = bool((cfg.get("features") or {}).get("use_active_tvl", True))
+    fee_input = features.fee_active_tvl if use_active else features.fee_tvl
+    fee_q = unit_interval(fee_input, 0.0, fee_full)
     vol_q = (1.0 - persist_mix) * unit_interval(features.volume_tvl, 0.0, vol_full) + persist_mix * clip01(
         features.volume_persistence
     )
@@ -134,6 +136,10 @@ def score_opportunity(features: PoolFeatures, cfg: Mapping[str, Any]) -> ScoreBr
     score = clip01(penalized)
 
     features_used = list(components.keys()) + [f"penalty:{k}" for k in penalties]
+    if use_active:
+        features_used.append("fee_active_tvl")
+    if features.wash_reasons:
+        features_used.append("wash:" + ",".join(features.wash_reasons))
     return ScoreBreakdown(
         score=score,
         components=components,

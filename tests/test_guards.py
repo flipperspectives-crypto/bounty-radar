@@ -236,6 +236,24 @@ class TestGuards(unittest.TestCase):
                 day_stamp="d",
             )
 
+    def test_wash_volume_veto_blocks_open(self):
+        cfg = mapping_to_dict(self.cfg)
+        cfg["guards"]["wash_volume_veto"] = True
+        engine = GuardEngine(cfg)
+        wash = derive_features(
+            _snap(tvl=40_000.0, volume_24h=900_000.0, fee_rate=0.04, fees_24h=36_000.0, active_tvl=4_000.0),
+            cfg,
+        )
+        result = engine.apply(
+            ActionProposal("OPEN", "hot print"),
+            self.account,
+            wash,
+            now_unix=10.0,
+            day_stamp="d",
+        )
+        self.assertIn("wash_volume_veto", result.tripped)
+        self.assertEqual(result.actual_action, "HOLD")
+
     def test_policy_cannot_bypass_guards(self):
         """Model may propose OPEN; code still has final authority."""
         cfg = mapping_to_dict(self.cfg)

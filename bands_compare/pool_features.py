@@ -41,6 +41,21 @@ def derive_features(snapshot: PoolSnapshot, cfg: Mapping[str, Any]) -> PoolFeatu
     fee_tvl = safe_div(fees_24h, tvl)
     volume_tvl = safe_div(volume_24h, tvl)
 
+    if snapshot.active_tvl is not None and float(snapshot.active_tvl) > EPS:
+        active_tvl = max(float(snapshot.active_tvl), 0.0)
+    else:
+        fallback_depth = float(_cfg_get(cfg, "features", "depth_fallback_frac", default=0.10) or 0.10)
+        if snapshot.liquidity_depth_near_price is not None:
+            active_tvl = max(float(snapshot.liquidity_depth_near_price), 0.0)
+        else:
+            active_tvl = tvl * fallback_depth
+    fee_active_tvl = safe_div(fees_24h, active_tvl)
+
+    lp_share = snapshot.lp_fee_share
+    if lp_share is None:
+        lp_share = float(_cfg_get(cfg, "features", "lp_fee_share", default=0.90) or 0.90)
+    lp_share = max(0.0, min(1.0, float(lp_share)))
+
     current_bin = int(snapshot.current_active_bin)
     prev_bin = snapshot.prev_active_bin if snapshot.prev_active_bin is not None else current_bin
     bin_move = abs(float(current_bin) - float(prev_bin))
@@ -112,8 +127,11 @@ def derive_features(snapshot: PoolSnapshot, cfg: Mapping[str, Any]) -> PoolFeatu
     else:
         inventory = max(0.0, min(1.0, float(snapshot.inventory_exposure)))
 
-    expected_fees = fees_24h * time_in_range
-    expected_fees_per_dollar = fee_tvl * time_in_range
+    use_active = bool(_cfg_get(cfg, "features", "use_active_tvl", default=True))
+    print_per_dollar = fee_active_tvl if use_active else fee_tvl
+    expected_fees = fees_24h * time_in_range * lp_share
+    expected_fees_per_dollar = print_per_dollar * time_in_range * lp_share
+    wash = tuple(wash_reasons(volume_tvl=volume_tvl, tvl=tvl, fee_rate=fee_rate, cfg=cfg))
 
     rent = float(_cfg_get(cfg, "costs", "rent_usd_per_position_day", default=0.0) or 0.0)
     rebalance = float(_cfg_get(cfg, "costs", "rebalance_usd", default=0.0) or 0.0)
@@ -151,6 +169,29 @@ def derive_features(snapshot: PoolSnapshot, cfg: Mapping[str, Any]) -> PoolFeatu
         expected_fees_per_dollar=expected_fees_per_dollar,
         depth_frac=depth_frac,
         estimated_slippage=float(snapshot.estimated_slippage or 0.0),
+        active_tvl=active_tvl,
+        fee_active_tvl=fee_active_tvl,
+        wash_reasons=wash,
+        lp_fee_share=lp_share,
         pool=snapshot.pool,
         timestamp=snapshot.timestamp,
     )
+
+
+def wash_reasons(*, volume_tvl: float, tvl: float, fee_rate: float, cfg: Mapping[str, Any]) -> list:
+    """Public wash heuristics. Large-TVL stables are not flagged for low fee rate alone."""
+    rules = cfg.get("wash_volume") if isinstance(cfg, Mapping) else None
+    if not isinstance(rules, Mapping):
+        rules = {}
+    reasons = []
+    max_vt = float(rules.get("max_volume_tvl", 10.0))
+    min_tvl = float(rules.get("min_tvl_usd", 100000.0))
+    min_tvl_vt = float(rules.get("min_tvl_volume_tvl", 5.0))
+    max_fee = float(rules.get("max_fee_rate", 0.02))
+    if volume_tvl > max_vt:
+        reasons.append("volume_tvl")
+    if tvl < min_tvl and volume_tvl > min_tvl_vt:
+        reasons.append("tiny_tvl_outsized_volume")
+    if tvl < min_tvl and fee_rate > max_fee:
+        reasons.append("fee_rate_high")
+    return reasons

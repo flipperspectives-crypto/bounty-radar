@@ -123,6 +123,26 @@ class TestPoolFeatures(unittest.TestCase):
         feat2 = derive_features(_snap(volume_24h=4_000_000.0, volume_avg_7d=1_000_000.0), self.cfg)
         self.assertLess(feat2.volume_persistence, feat.volume_persistence)
 
+    def test_fee_active_tvl_uses_in_range_liquidity(self):
+        feat = derive_features(
+            _snap(fees_24h=10_000.0, tvl=1_000_000.0, active_tvl=200_000.0),
+            self.cfg,
+        )
+        self.assertAlmostEqual(feat.fee_tvl, 0.01)
+        self.assertAlmostEqual(feat.active_tvl, 200_000.0)
+        self.assertAlmostEqual(feat.fee_active_tvl, 0.05)
+        self.assertGreater(feat.fee_active_tvl, feat.fee_tvl)
+
+    def test_wash_volume_flags_tiny_tvl_and_turnover(self):
+        clean = derive_features(_snap(), self.cfg)
+        self.assertEqual(clean.wash_reasons, ())
+        wash = derive_features(
+            _snap(tvl=40_000.0, volume_24h=800_000.0, fee_rate=0.04, fees_24h=32_000.0, active_tvl=5_000.0),
+            self.cfg,
+        )
+        self.assertTrue(wash.wash_reasons)
+        self.assertGreater(wash.volume_tvl, 10.0)
+
 
 if __name__ == "__main__":
     unittest.main()

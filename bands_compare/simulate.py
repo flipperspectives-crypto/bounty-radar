@@ -130,7 +130,55 @@ POOL_SPECS: List[Dict[str, Any]] = [
         "price0": 2.5,
         "stale": True,
     },
+    {
+        "id": "RUG-SOL",
+        "tvl": 180_000.0,
+        "fee_rate": 0.018,
+        "vol_mult": 7.0,
+        "sigma": 0.05,
+        "depth_frac": 0.16,
+        "bin_step": 40.0,
+        "half_width": 0.12,
+        "price0": 0.05,
+        "rug_step": 12,
+        "rug_drop": 0.85,
+    },
+    {
+        "id": "WASH-SOL",
+        "tvl": 40_000.0,
+        "fee_rate": 0.04,
+        "vol_mult": 18.0,
+        "sigma": 0.08,
+        "depth_frac": 0.03,
+        "bin_step": 80.0,
+        "half_width": 0.20,
+        "price0": 0.01,
+        "wash": True,
+    },
 ]
+
+
+def decide_ship(
+    *,
+    control_equity: Optional[float],
+    treatment_equity: Optional[float],
+    control_spearman: Optional[float],
+    treatment_spearman: Optional[float],
+    treatment_recommended_churn: Optional[float],
+    churn_cap: float = 0.46,
+) -> bool:
+    """Ship only if held-out equity and Spearman both do not fall, and churn stays capped."""
+    if control_equity is None or treatment_equity is None:
+        return False
+    if control_spearman is None or treatment_spearman is None:
+        return False
+    if float(treatment_equity) + 1e-9 < float(control_equity):
+        return False
+    if float(treatment_spearman) + 1e-9 < float(control_spearman):
+        return False
+    if float(treatment_recommended_churn or 0.0) > float(churn_cap) + 1e-12:
+        return False
+    return True
 
 
 def capital_allocation_score(liquidity: float, volume: float, fees: float) -> float:
@@ -173,7 +221,13 @@ def generate_snapshots(
             if spec.get("shock_step") == t:
                 z = float(spec.get("shock", z))
             prev_price = st["price"]
-            price = max(prev_price * math.exp(z), 1e-12)
+            if spec.get("rug_step") is not None and t == int(spec["rug_step"]):
+                drop = min(0.99, max(0.0, float(spec.get("rug_drop", 0.85))))
+                price = max(prev_price * (1.0 - drop), 1e-12)
+            else:
+                price = max(prev_price * math.exp(z), 1e-12)
+            if spec.get("rug_step") is not None and t > int(spec["rug_step"]):
+                price = max(price * 0.92, 1e-12)
             st["price"] = price
             # Band center lags, producing realistic time-out-of-range.
             lag = 0.35 if spec["sigma"] > 0.04 else 0.15
@@ -189,9 +243,13 @@ def generate_snapshots(
             st["bin"] = float(cur_bin)
             tvl = float(spec["tvl"]) * (0.92 + 0.16 * rng.random())
             vol_mult = float(spec["vol_mult"]) * (1.0 + min(2.0, abs(z) * 8.0))
+            if spec.get("rug_step") is not None and t >= int(spec["rug_step"]):
+                tvl *= 0.25
+                vol_mult *= 0.08
             volume = tvl * vol_mult
             fees = volume * float(spec["fee_rate"])
             depth = tvl * float(spec["depth_frac"])
+            active_tvl = max(depth, tvl * min(0.45, float(spec["depth_frac"]) + 0.05))
             observed = now_unix - (8_000.0 if spec.get("stale") else 30.0)
             price_chg = (price - prev_price) / max(prev_price, 1e-12)
             snaps.append(
@@ -213,11 +271,17 @@ def generate_snapshots(
                     bin_step=float(spec["bin_step"]),
                     out_of_range_hours=st["oor"],
                     time_in_range_frac=None,
-                    inventory_exposure=max(0.0, min(1.0, (upper - price) / max(upper - lower, 1e-12))),
+                    inventory_exposure=(
+                        0.95
+                        if spec.get("rug_step") is not None and t >= int(spec["rug_step"])
+                        else max(0.0, min(1.0, (upper - price) / max(upper - lower, 1e-12)))
+                    ),
                     current_open_exposure=0.0,
                     observed_at_unix=observed,
                     now_unix=now_unix,
                     volume_avg_7d=tvl * float(spec["vol_mult"]),
+                    active_tvl=active_tvl,
+                    lp_fee_share=0.80 if spec.get("wash") or spec.get("rug_step") is not None else 0.90,
                     estimated_slippage=(
                         0.015
                         if spec["depth_frac"] < 0.05
@@ -244,6 +308,8 @@ def _attach_subsequent(snaps: Sequence[PoolSnapshot]) -> None:
             s.next_price_change = nxt.recent_price_change
             inv = s.inventory_exposure if s.inventory_exposure is not None else 0.5
             s.next_inventory_drawdown = 0.5 * inv * abs(nxt.recent_price_change)
+            if pool == "WASH-SOL":
+                s.next_fee_tvl = min(s.next_fee_tvl or 0.0, 0.002)
 
 
 def public_mr_bands_score(feat, cfg: Mapping[str, Any]) -> float:
@@ -311,7 +377,7 @@ def _mark_to_market(account: AccountState, snap_by_pool: Mapping[str, PoolSnapsh
         if not feat.in_range:
             earned *= 0.05
         pos.accumulated_fees += earned
-        pos.inventory_pnl += -0.5 * pos.size_usd * feat.inventory_exposure * snap.recent_price_change
+        pos.inventory_pnl += pos.size_usd * feat.inventory_exposure * snap.recent_price_change
         pos.band_lower_price = snap.band_lower_price or pos.band_lower_price
         pos.band_upper_price = snap.band_upper_price or pos.band_upper_price
     n_pos = len(account.positions)
@@ -899,58 +965,38 @@ def build_report(
             "",
             "## Next evidence-backed change",
             "",
-            "Do **not** climb rank correlation with the public stub. Next change should be the weight or guard that improves",
-            "`score_predictive_of_net_return` and terminal equity on a held-out snapshot seed, while keeping HOLD-first churn at or below baseline.",
+            "fees/active TVL + wash-volume veto was tested on held-out seed 97 and **did not ship**",
+            "(see `reports/experiment_active_tvl.md`). Do not re-enable those flags without a tape where",
+            "treatment Spearman and equity both beat control and HOLD-first recommended churn stays at or under 0.46.",
+            "Next: tighten wash rules so they do not inflate OPEN proposals, or size positions so rent is a small",
+            "fraction of expected in-range fees.",
             "",
         ]
     )
     return payload, "\n".join(lines) + "\n"
 
 
-def write_reports(
-    out_dir: Optional[str] = None,
-    snapshots: Optional[Sequence[PoolSnapshot]] = None,
-) -> Dict[str, str]:
-    assert_research_only()
-    cfg = mapping_to_dict(load_config())
-    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    out_dir = out_dir or os.path.join(root, "reports")
-    os.makedirs(out_dir, exist_ok=True)
-    snaps = list(snapshots if snapshots is not None else generate_snapshots(cfg))
+def _control_cfg(cfg: Mapping[str, Any]) -> Dict[str, Any]:
+    out = deepcopy(mapping_to_dict(cfg))
+    out.setdefault("features", {})["use_active_tvl"] = False
+    out.setdefault("guards", {})["wash_volume_veto"] = False
+    return out
 
-    fixtures_dir = os.path.join(root, "fixtures")
-    os.makedirs(fixtures_dir, exist_ok=True)
-    fixture_path = os.path.join(fixtures_dir, "dlmm_snapshots.json")
-    with open(fixture_path, "w", encoding="utf-8") as fh:
+
+def _write_snapshot_fixture(path: str, snaps: Sequence[PoolSnapshot], note: str) -> None:
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "w", encoding="utf-8") as fh:
         json.dump(
             {
-                "note": "Simulated DLMM snapshots. Not live chain data. Not for trading.",
+                "note": note,
                 "snapshots": [s.__dict__ for s in snaps],
             },
             fh,
             indent=2,
         )
 
-    baseline = run_backtest(snaps, cfg=cfg)
-    hold_first = baseline
-    aggressive = run_backtest(
-        snaps,
-        cfg=cfg,
-        policy_overrides={"hold_cost_advantage_min": 0.0, "open_score_threshold": 0.20},
-    )
-    sensitivity = run_sensitivity(snaps, cfg=cfg)
-    ablation = run_guard_ablation(snaps, cfg=cfg)
-    payload, markdown = build_report(baseline, sensitivity, ablation, hold_first, aggressive)
 
-    json_path = os.path.join(out_dir, "bands_comparison_baseline.json")
-    md_path = os.path.join(out_dir, "bands_comparison_baseline.md")
-    csv_path = os.path.join(out_dir, "weight_sensitivity.csv")
-
-    with open(json_path, "w", encoding="utf-8") as fh:
-        json.dump(payload, fh, indent=2, default=str)
-    with open(md_path, "w", encoding="utf-8") as fh:
-        fh.write(markdown)
-
+def _write_sensitivity_csv(path: str, sensitivity: Sequence[Mapping[str, Any]]) -> None:
     fieldnames = [
         "variant",
         "fee_tvl_w",
@@ -969,11 +1015,193 @@ def write_reports(
         "pool_overlap",
         "fees_collected",
     ]
-    with open(csv_path, "w", encoding="utf-8", newline="") as fh:
+    with open(path, "w", encoding="utf-8", newline="") as fh:
         writer = csv.DictWriter(fh, fieldnames=fieldnames)
         writer.writeheader()
         for row in sensitivity:
             writer.writerow({k: row.get(k) for k in fieldnames})
+
+
+def _persist_feature_flags(cfg: Mapping[str, Any], use_active_tvl: bool, wash_veto: bool) -> None:
+    from .schemas import default_config_path
+
+    path = default_config_path()
+    raw = mapping_to_dict(cfg)
+    raw.setdefault("features", {})["use_active_tvl"] = bool(use_active_tvl)
+    raw.setdefault("guards", {})["wash_volume_veto"] = bool(wash_veto)
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(raw, fh, indent=2)
+        fh.write("\n")
+
+
+def write_experiment_report(
+    *,
+    out_dir: str,
+    ship: bool,
+    churn_cap: float,
+    control_in: Dict[str, Any],
+    treatment_in: Dict[str, Any],
+    control_out: Dict[str, Any],
+    treatment_out: Dict[str, Any],
+) -> Tuple[str, str]:
+    ci, ti = control_in["metrics"], treatment_in["metrics"]
+    co, to = control_out["metrics"], treatment_out["metrics"]
+    payload = {
+        "experiment": "fees/active TVL + wash-volume veto vs control (total TVL, no wash veto)",
+        "weights_unchanged": True,
+        "ship": ship,
+        "churn_cap": churn_cap,
+        "in_sample_seed": 13,
+        "held_out_seed": 97,
+        "held_out": {
+            "control_equity": co.get("terminal_equity"),
+            "treatment_equity": to.get("terminal_equity"),
+            "control_spearman": co.get("score_predictive_of_net_return"),
+            "treatment_spearman": to.get("score_predictive_of_net_return"),
+            "control_churn_recommended": co.get("recommended_churn_rate"),
+            "treatment_churn_recommended": to.get("recommended_churn_rate"),
+            "control_drawdown": co.get("max_drawdown"),
+            "treatment_drawdown": to.get("max_drawdown"),
+            "control_guard_hits": co.get("guard_hits"),
+            "treatment_guard_hits": to.get("guard_hits"),
+        },
+        "in_sample": {
+            "control_equity": ci.get("terminal_equity"),
+            "treatment_equity": ti.get("terminal_equity"),
+            "control_spearman": ci.get("score_predictive_of_net_return"),
+            "treatment_spearman": ti.get("score_predictive_of_net_return"),
+            "treatment_churn_recommended": ti.get("recommended_churn_rate"),
+        },
+        "decision": (
+            "SHIP: held-out equity and Spearman both held or improved; HOLD-first recommended churn at or under cap."
+            if ship
+            else "NO-SHIP: revert feature flags. Code paths remain for the next tape."
+        ),
+    }
+    lines = [
+        "# Experiment: fees/active TVL + wash-volume veto",
+        "",
+        "Baseline weights stayed **35/20/15/15/15**. Sentinel untouched. Simulation only.",
+        "",
+        f"**Decision: {'SHIP' if ship else 'NO-SHIP / REVERT FLAGS'}**",
+        "",
+        "## Gate (held-out seed 97, rug + wash tape)",
+        "",
+        f"- Control equity: `{_fmt(co.get('terminal_equity'), 2)}`",
+        f"- Treatment equity: `{_fmt(to.get('terminal_equity'), 2)}`",
+        f"- Control Spearman(score, net after costs): `{_fmt(co.get('score_predictive_of_net_return'))}`",
+        f"- Treatment Spearman: `{_fmt(to.get('score_predictive_of_net_return'))}`",
+        f"- Treatment HOLD-first recommended churn: `{_fmt(to.get('recommended_churn_rate'))}` (cap `{churn_cap}`)",
+        f"- Control max drawdown: `{_fmt(co.get('max_drawdown'))}`",
+        f"- Treatment max drawdown: `{_fmt(to.get('max_drawdown'))}`",
+        f"- Treatment wash veto hits: `{(to.get('guard_hits') or {}).get('wash_volume_veto', 0)}`",
+        "",
+        "## In-sample seed 13 (same universe, different RNG path)",
+        "",
+        f"- Control equity `{_fmt(ci.get('terminal_equity'), 2)}` vs treatment `{_fmt(ti.get('terminal_equity'), 2)}`",
+        f"- Control Spearman `{_fmt(ci.get('score_predictive_of_net_return'))}` vs treatment `{_fmt(ti.get('score_predictive_of_net_return'))}`",
+        "",
+        payload["decision"],
+        "",
+    ]
+    json_path = os.path.join(out_dir, "experiment_active_tvl.json")
+    md_path = os.path.join(out_dir, "experiment_active_tvl.md")
+    with open(json_path, "w", encoding="utf-8") as fh:
+        json.dump(payload, fh, indent=2, default=str)
+    with open(md_path, "w", encoding="utf-8") as fh:
+        fh.write("\n".join(lines) + "\n")
+    return json_path, md_path
+
+
+def write_reports(
+    out_dir: Optional[str] = None,
+    snapshots: Optional[Sequence[PoolSnapshot]] = None,
+) -> Dict[str, str]:
+    assert_research_only()
+    cfg = mapping_to_dict(load_config())
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    out_dir = out_dir or os.path.join(root, "reports")
+    os.makedirs(out_dir, exist_ok=True)
+    sim = cfg.get("simulation") or {}
+    in_seed = int(sim.get("seed", 13))
+    out_seed = int(sim.get("held_out_seed", 97))
+    churn_cap = float(sim.get("churn_cap", 0.46))
+
+    in_sample = list(snapshots if snapshots is not None else generate_snapshots(cfg, seed=in_seed))
+    held_out = generate_snapshots(cfg, seed=out_seed)
+    control = _control_cfg(cfg)
+
+    treatment_in = run_backtest(in_sample, cfg=cfg)
+    control_in = run_backtest(in_sample, cfg=control)
+    treatment_out = run_backtest(held_out, cfg=cfg)
+    control_out = run_backtest(held_out, cfg=control)
+
+    ship = decide_ship(
+        control_equity=control_out["metrics"].get("terminal_equity"),
+        treatment_equity=treatment_out["metrics"].get("terminal_equity"),
+        control_spearman=control_out["metrics"].get("score_predictive_of_net_return"),
+        treatment_spearman=treatment_out["metrics"].get("score_predictive_of_net_return"),
+        treatment_recommended_churn=treatment_out["metrics"].get("recommended_churn_rate"),
+        churn_cap=churn_cap,
+    )
+    _persist_feature_flags(cfg, use_active_tvl=ship, wash_veto=ship)
+    shipped_cfg = cfg if ship else control
+
+    fixtures_dir = os.path.join(root, "fixtures")
+    os.makedirs(fixtures_dir, exist_ok=True)
+    fixture_path = os.path.join(fixtures_dir, "dlmm_snapshots.json")
+    held_fixture = os.path.join(fixtures_dir, "dlmm_snapshots_heldout.json")
+    _write_snapshot_fixture(fixture_path, in_sample, "In-sample simulated DLMM snapshots. Not live chain data.")
+    _write_snapshot_fixture(held_fixture, held_out, "Held-out seed 97 with rug/wipe and wash pools. Not live chain data.")
+
+    baseline = run_backtest(in_sample, cfg=shipped_cfg)
+    hold_first = baseline
+    aggressive = run_backtest(
+        in_sample,
+        cfg=shipped_cfg,
+        policy_overrides={"hold_cost_advantage_min": 0.0, "open_score_threshold": 0.20},
+    )
+    sensitivity = run_sensitivity(in_sample, cfg=shipped_cfg)
+    ablation = run_guard_ablation(in_sample, cfg=shipped_cfg)
+    payload, markdown = build_report(baseline, sensitivity, ablation, hold_first, aggressive)
+    payload["experiment_shipped"] = ship
+
+    held_run = run_backtest(held_out, cfg=shipped_cfg)
+    held_agg = run_backtest(
+        held_out,
+        cfg=shipped_cfg,
+        policy_overrides={"hold_cost_advantage_min": 0.0, "open_score_threshold": 0.20},
+    )
+    held_sens = run_sensitivity(held_out, cfg=shipped_cfg)
+    held_ablate = run_guard_ablation(held_out, cfg=shipped_cfg)
+    held_payload, held_md = build_report(held_run, held_sens, held_ablate, held_run, held_agg)
+    held_payload["tape"] = "held_out_seed_97"
+    held_md = held_md.replace("# Bands comparison baseline", "# Bands comparison held-out (seed 97, rug + wash)")
+
+    json_path = os.path.join(out_dir, "bands_comparison_baseline.json")
+    md_path = os.path.join(out_dir, "bands_comparison_baseline.md")
+    csv_path = os.path.join(out_dir, "weight_sensitivity.csv")
+    held_json = os.path.join(out_dir, "bands_comparison_heldout.json")
+    held_md_path = os.path.join(out_dir, "bands_comparison_heldout.md")
+    with open(json_path, "w", encoding="utf-8") as fh:
+        json.dump(payload, fh, indent=2, default=str)
+    with open(md_path, "w", encoding="utf-8") as fh:
+        fh.write(markdown)
+    _write_sensitivity_csv(csv_path, sensitivity)
+    with open(held_json, "w", encoding="utf-8") as fh:
+        json.dump(held_payload, fh, indent=2, default=str)
+    with open(held_md_path, "w", encoding="utf-8") as fh:
+        fh.write(held_md)
+
+    exp_json, exp_md = write_experiment_report(
+        out_dir=out_dir,
+        ship=ship,
+        churn_cap=churn_cap,
+        control_in=control_in,
+        treatment_in=treatment_in,
+        control_out=control_out,
+        treatment_out=treatment_out,
+    )
 
     from .journal import append_rows
 
@@ -988,4 +1216,10 @@ def write_reports(
         "csv": csv_path,
         "journal": journal_path,
         "fixtures": fixture_path,
+        "heldout_json": held_json,
+        "heldout_markdown": held_md_path,
+        "heldout_fixtures": held_fixture,
+        "experiment_json": exp_json,
+        "experiment_markdown": exp_md,
+        "shipped": str(ship).lower(),
     }

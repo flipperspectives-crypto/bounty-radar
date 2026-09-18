@@ -79,6 +79,7 @@ REQUIRED_GUARDS = (
     "abnormal_price_move_veto",
     "stop_loss",
     "kill_switch",
+    "wash_volume_veto",
 )
 
 CONFIG_FILENAME = "config.json"
@@ -189,6 +190,8 @@ class PoolSnapshot:
     next_fee_tvl: Optional[float] = None
     next_price_change: Optional[float] = None
     next_inventory_drawdown: Optional[float] = None
+    active_tvl: Optional[float] = None
+    lp_fee_share: Optional[float] = None
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "PoolSnapshot":
@@ -223,6 +226,10 @@ class PoolFeatures:
     expected_fees_per_dollar: float
     depth_frac: float
     estimated_slippage: float = 0.0
+    active_tvl: float = 0.0
+    fee_active_tvl: float = 0.0
+    wash_reasons: tuple = ()
+    lp_fee_share: float = 0.90
     pool: str = ""
     timestamp: str = ""
 
