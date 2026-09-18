@@ -1,5 +1,5 @@
 {
-  "_comment": "Independent comparable DLMM LP model. These are NOT Mr Bands private coefficients. All scoring, policy, cost, and guard values are loaded from this file only. use_active_tvl and wash_volume_veto were tested on a held-out rug tape and REVERTED (see reports/experiment_active_tvl.md).",
+  "_comment": "Independent comparable DLMM LP model. These are NOT Mr Bands private coefficients. Tight wash veto SHIPPED (tiny TVL AND volume/TVL > 10). use_active_tvl stays off. See reports/experiment_active_tvl.md.",
   "opportunity_weights": {
     "fee_tvl_quality": 0.35,
     "volume_tvl_persistence": 0.20,
@@ -48,14 +48,12 @@
     "abnormal_price_move_veto": 0.20,
     "stop_loss": 0.12,
     "kill_switch": false,
-    "wash_volume_veto": false
+    "wash_volume_veto": true
   },
   "wash_volume": {
-    "_comment": "Hard skip for wash-looking prints. Not applied to large-TVL stables via low fee rate alone. Flag shipped off after held-out test.",
+    "_comment": "Veto only tiny TVL combined with volume/TVL above the cap. No fee-rate-only veto. No large-pool turnover veto.",
     "max_volume_tvl": 10.0,
-    "min_tvl_usd": 100000.0,
-    "min_tvl_volume_tvl": 5.0,
-    "max_fee_rate": 0.02
+    "min_tvl_usd": 100000.0
   },
   "costs": {
     "sol_usd": 100.0,

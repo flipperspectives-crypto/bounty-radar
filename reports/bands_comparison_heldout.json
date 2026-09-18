@@ -31,6 +31,7 @@
       "cooldown": 8,
       "max_allocation_per_position": 15,
       "max_band_width": 55,
+      "wash_volume_veto": 40,
       "max_allowed_slippage": 47,
       "max_actions_per_day": 67,
       "abnormal_price_move_veto": 1,
@@ -79,6 +80,15 @@
         "baseline_drawdown": 0.015530407120515203,
         "ablated_drawdown": 0.15000638818938838,
         "extra_drawdown_when_disabled": 0.13447598106887318
+      },
+      {
+        "guard": "combo:caps+liquidity+abnormal (spray)",
+        "baseline_equity": 1009.8508967042517,
+        "ablated_equity": 878.9478550691231,
+        "equity_lost_when_disabled": 130.9030416351286,
+        "baseline_drawdown": 0.015530407120515203,
+        "ablated_drawdown": 0.17423922722576005,
+        "extra_drawdown_when_disabled": 0.15870882010524484
       },
       {
         "guard": "max_allocation_per_position",
@@ -187,15 +197,6 @@
         "baseline_drawdown": 0.015530407120515203,
         "ablated_drawdown": 0.015530407120515203,
         "extra_drawdown_when_disabled": 0.0
-      },
-      {
-        "guard": "combo:caps+liquidity+abnormal (spray)",
-        "baseline_equity": 1009.8508967042517,
-        "ablated_equity": 1022.1545577125291,
-        "equity_lost_when_disabled": -12.303661008277459,
-        "baseline_drawdown": 0.015530407120515203,
-        "ablated_drawdown": 0.11063802751562372,
-        "extra_drawdown_when_disabled": 0.09510762039510852
       }
     ],
     "q5_weight_robustness_spread": {

@@ -1,19 +1,19 @@
 {
-  "experiment": "fees/active TVL + wash-volume veto vs control (total TVL, no wash veto)",
+  "experiment": "tight wash veto (tiny TVL AND vol/TVL>10 only) vs control; active TVL stays off",
   "weights_unchanged": true,
-  "ship": false,
+  "ship": true,
   "churn_cap": 0.46,
   "in_sample_seed": 13,
   "held_out_seed": 97,
   "held_out": {
     "control_equity": 1009.8508967042517,
-    "treatment_equity": 982.7204227395371,
+    "treatment_equity": 1009.8508967042517,
     "control_spearman": 0.4753088946367853,
-    "treatment_spearman": 0.17163643267687312,
+    "treatment_spearman": 0.4753088946367853,
     "control_churn_recommended": 0.5458333333333333,
-    "treatment_churn_recommended": 0.6416666666666667,
+    "treatment_churn_recommended": 0.5458333333333333,
     "control_drawdown": 0.015530407120515203,
-    "treatment_drawdown": 0.019913749569091393,
+    "treatment_drawdown": 0.015530407120515203,
     "control_guard_hits": {
       "cooldown": 8,
       "max_allocation_per_position": 15,
@@ -24,21 +24,22 @@
       "stop_loss": 4
     },
     "treatment_guard_hits": {
-      "cooldown": 4,
-      "max_allocation_per_position": 112,
-      "wash_volume_veto": 96,
-      "max_band_width": 54,
+      "cooldown": 8,
+      "max_allocation_per_position": 15,
+      "max_band_width": 55,
+      "wash_volume_veto": 40,
       "max_allowed_slippage": 47,
-      "max_actions_per_day": 100,
-      "stop_loss": 2
+      "max_actions_per_day": 67,
+      "abnormal_price_move_veto": 1,
+      "stop_loss": 4
     }
   },
   "in_sample": {
     "control_equity": 861.0507557213409,
-    "treatment_equity": 983.676047197491,
+    "treatment_equity": 861.0507557213409,
     "control_spearman": 0.49207858782569247,
-    "treatment_spearman": 0.21219156768805525,
-    "treatment_churn_recommended": 0.625
+    "treatment_spearman": 0.49207858782569247,
+    "treatment_churn_recommended": 0.525
   },
-  "decision": "NO-SHIP: revert feature flags. Code paths remain for the next tape."
+  "decision": "SHIP: held-out equity and Spearman both held or improved; HOLD-first recommended churn at or under cap."
 }

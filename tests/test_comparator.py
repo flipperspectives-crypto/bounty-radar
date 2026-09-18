@@ -201,6 +201,28 @@ class TestComparator(unittest.TestCase):
                 churn_cap=0.46,
             )
         )
+        self.assertTrue(
+            decide_ship(
+                control_equity=1009.85,
+                treatment_equity=1009.85,
+                control_spearman=0.4753,
+                treatment_spearman=0.4753,
+                treatment_recommended_churn=0.5458,
+                churn_cap=0.46,
+                control_recommended_churn=0.5458,
+            )
+        )
+        self.assertFalse(
+            decide_ship(
+                control_equity=1009.85,
+                treatment_equity=1009.85,
+                control_spearman=0.4753,
+                treatment_spearman=0.4753,
+                treatment_recommended_churn=0.70,
+                churn_cap=0.46,
+                control_recommended_churn=0.5458,
+            )
+        )
 
     def test_hold_first_reduces_churn_vs_always_act(self):
         snaps = generate_snapshots()

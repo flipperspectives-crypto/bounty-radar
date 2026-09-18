@@ -140,8 +140,21 @@ class TestPoolFeatures(unittest.TestCase):
             _snap(tvl=40_000.0, volume_24h=800_000.0, fee_rate=0.04, fees_24h=32_000.0, active_tvl=5_000.0),
             self.cfg,
         )
-        self.assertTrue(wash.wash_reasons)
+        self.assertEqual(wash.wash_reasons, ("tiny_tvl_outsized_volume",))
         self.assertGreater(wash.volume_tvl, 10.0)
+
+    def test_wash_does_not_flag_large_tvl_or_fee_rate_alone(self):
+        large_turnover = derive_features(
+            _snap(tvl=1_000_000.0, volume_24h=15_000_000.0, fee_rate=0.01, fees_24h=150_000.0),
+            self.cfg,
+        )
+        self.assertEqual(large_turnover.wash_reasons, ())
+        tiny_but_quiet = derive_features(
+            _snap(tvl=40_000.0, volume_24h=80_000.0, fee_rate=0.04, fees_24h=3_200.0, active_tvl=5_000.0),
+            self.cfg,
+        )
+        self.assertEqual(tiny_but_quiet.wash_reasons, ())
+        self.assertLess(tiny_but_quiet.volume_tvl, 10.0)
 
 
 if __name__ == "__main__":

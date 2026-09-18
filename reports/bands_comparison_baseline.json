@@ -30,6 +30,7 @@
     "guard_hits": {
       "cooldown": 9,
       "max_allocation_per_position": 92,
+      "wash_volume_veto": 39,
       "max_allowed_slippage": 43,
       "max_band_width": 49,
       "max_actions_per_day": 85,
@@ -190,11 +191,11 @@
       {
         "guard": "combo:caps+liquidity+abnormal (spray)",
         "baseline_equity": 861.0507557213409,
-        "ablated_equity": 1122.4827397641707,
-        "equity_lost_when_disabled": -261.43198404282975,
+        "ablated_equity": 956.4421703763761,
+        "equity_lost_when_disabled": -95.39141465503519,
         "baseline_drawdown": 0.14237469812379194,
-        "ablated_drawdown": 0.08976579639547942,
-        "extra_drawdown_when_disabled": -0.05260890172831252
+        "ablated_drawdown": 0.11847119823681698,
+        "extra_drawdown_when_disabled": -0.02390349988697496
       }
     ],
     "q5_weight_robustness_spread": {
@@ -352,5 +353,5 @@
       "fees_collected": 22.70926374834509
     }
   ],
-  "experiment_shipped": false
+  "experiment_shipped": true
 }

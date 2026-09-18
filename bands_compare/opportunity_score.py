@@ -56,7 +56,7 @@ def score_opportunity(features: PoolFeatures, cfg: Mapping[str, Any]) -> ScoreBr
     net_hi = _n(cfg, "net_return_hi", 0.12)
     persist_mix = _n(cfg, "persistence_mix", 0.40)
 
-    use_active = bool((cfg.get("features") or {}).get("use_active_tvl", True))
+    use_active = bool((cfg.get("features") or {}).get("use_active_tvl", False))
     fee_input = features.fee_active_tvl if use_active else features.fee_tvl
     fee_q = unit_interval(fee_input, 0.0, fee_full)
     vol_q = (1.0 - persist_mix) * unit_interval(features.volume_tvl, 0.0, vol_full) + persist_mix * clip01(

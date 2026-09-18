@@ -127,7 +127,7 @@ def derive_features(snapshot: PoolSnapshot, cfg: Mapping[str, Any]) -> PoolFeatu
     else:
         inventory = max(0.0, min(1.0, float(snapshot.inventory_exposure)))
 
-    use_active = bool(_cfg_get(cfg, "features", "use_active_tvl", default=True))
+    use_active = bool(_cfg_get(cfg, "features", "use_active_tvl", default=False))
     print_per_dollar = fee_active_tvl if use_active else fee_tvl
     expected_fees = fees_24h * time_in_range * lp_share
     expected_fees_per_dollar = print_per_dollar * time_in_range * lp_share
@@ -179,19 +179,12 @@ def derive_features(snapshot: PoolSnapshot, cfg: Mapping[str, Any]) -> PoolFeatu
 
 
 def wash_reasons(*, volume_tvl: float, tvl: float, fee_rate: float, cfg: Mapping[str, Any]) -> list:
-    """Public wash heuristics. Large-TVL stables are not flagged for low fee rate alone."""
+    """Wash = tiny TVL AND volume/TVL above the cap. No fee-rate veto. No large-pool veto."""
     rules = cfg.get("wash_volume") if isinstance(cfg, Mapping) else None
     if not isinstance(rules, Mapping):
         rules = {}
-    reasons = []
     max_vt = float(rules.get("max_volume_tvl", 10.0))
     min_tvl = float(rules.get("min_tvl_usd", 100000.0))
-    min_tvl_vt = float(rules.get("min_tvl_volume_tvl", 5.0))
-    max_fee = float(rules.get("max_fee_rate", 0.02))
-    if volume_tvl > max_vt:
-        reasons.append("volume_tvl")
-    if tvl < min_tvl and volume_tvl > min_tvl_vt:
-        reasons.append("tiny_tvl_outsized_volume")
-    if tvl < min_tvl and fee_rate > max_fee:
-        reasons.append("fee_rate_high")
-    return reasons
+    if tvl < min_tvl and volume_tvl > max_vt:
+        return ["tiny_tvl_outsized_volume"]
+    return []

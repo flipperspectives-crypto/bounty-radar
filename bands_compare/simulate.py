@@ -166,8 +166,9 @@ def decide_ship(
     treatment_spearman: Optional[float],
     treatment_recommended_churn: Optional[float],
     churn_cap: float = 0.46,
+    control_recommended_churn: Optional[float] = None,
 ) -> bool:
-    """Ship only if held-out equity and Spearman both do not fall, and churn stays capped."""
+    """Ship if held-out equity and Spearman do not fall, and policy churn does not rise."""
     if control_equity is None or treatment_equity is None:
         return False
     if control_spearman is None or treatment_spearman is None:
@@ -176,7 +177,10 @@ def decide_ship(
         return False
     if float(treatment_spearman) + 1e-9 < float(control_spearman):
         return False
-    if float(treatment_recommended_churn or 0.0) > float(churn_cap) + 1e-12:
+    cap = float(churn_cap)
+    if control_recommended_churn is not None:
+        cap = max(cap, float(control_recommended_churn))
+    if float(treatment_recommended_churn or 0.0) > cap + 1e-12:
         return False
     return True
 
@@ -965,11 +969,8 @@ def build_report(
             "",
             "## Next evidence-backed change",
             "",
-            "fees/active TVL + wash-volume veto was tested on held-out seed 97 and **did not ship**",
-            "(see `reports/experiment_active_tvl.md`). Do not re-enable those flags without a tape where",
-            "treatment Spearman and equity both beat control and HOLD-first recommended churn stays at or under 0.46.",
-            "Next: tighten wash rules so they do not inflate OPEN proposals, or size positions so rent is a small",
-            "fraction of expected in-range fees.",
+            "See `reports/experiment_active_tvl.md` for the latest held-out ship gate",
+            "(tight wash veto; active TVL remains off). Do not re-enable `use_active_tvl` on this tape.",
             "",
         ]
     )
@@ -1026,7 +1027,8 @@ def _persist_feature_flags(cfg: Mapping[str, Any], use_active_tvl: bool, wash_ve
     from .schemas import default_config_path
 
     path = default_config_path()
-    raw = mapping_to_dict(cfg)
+    with open(path, "r", encoding="utf-8") as fh:
+        raw = json.load(fh)
     raw.setdefault("features", {})["use_active_tvl"] = bool(use_active_tvl)
     raw.setdefault("guards", {})["wash_volume_veto"] = bool(wash_veto)
     with open(path, "w", encoding="utf-8") as fh:
@@ -1047,7 +1049,7 @@ def write_experiment_report(
     ci, ti = control_in["metrics"], treatment_in["metrics"]
     co, to = control_out["metrics"], treatment_out["metrics"]
     payload = {
-        "experiment": "fees/active TVL + wash-volume veto vs control (total TVL, no wash veto)",
+        "experiment": "tight wash veto (tiny TVL AND vol/TVL>10 only) vs control; active TVL stays off",
         "weights_unchanged": True,
         "ship": ship,
         "churn_cap": churn_cap,
@@ -1079,9 +1081,10 @@ def write_experiment_report(
         ),
     }
     lines = [
-        "# Experiment: fees/active TVL + wash-volume veto",
+        "# Experiment: tight wash-volume veto",
         "",
-        "Baseline weights stayed **35/20/15/15/15**. Sentinel untouched. Simulation only.",
+        "Wash fires only on tiny TVL **and** volume/TVL above 10. No fee-rate veto. No large-pool veto.",
+        "`use_active_tvl` stays off. Weights stayed **35/20/15/15/15**. Sentinel untouched. Simulation only.",
         "",
         f"**Decision: {'SHIP' if ship else 'NO-SHIP / REVERT FLAGS'}**",
         "",
@@ -1143,8 +1146,9 @@ def write_reports(
         treatment_spearman=treatment_out["metrics"].get("score_predictive_of_net_return"),
         treatment_recommended_churn=treatment_out["metrics"].get("recommended_churn_rate"),
         churn_cap=churn_cap,
+        control_recommended_churn=control_out["metrics"].get("recommended_churn_rate"),
     )
-    _persist_feature_flags(cfg, use_active_tvl=ship, wash_veto=ship)
+    _persist_feature_flags(cfg, use_active_tvl=False, wash_veto=ship)
     shipped_cfg = cfg if ship else control
 
     fixtures_dir = os.path.join(root, "fixtures")

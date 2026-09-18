@@ -56,9 +56,10 @@ Matching the public stub's numerical mix is not the same as improving net return
 Ablation uses an eager policy (low OPEN threshold, no cost-advantage HOLD) so guards are the last line of authority.
 Single-guard leave-one-out is often flat when remaining rules still block the same pool; a combo row tests that overlap.
 
-Baseline guard hit counts (vetoes, not equity): `max_actions_per_day`=67, `max_band_width`=55, `max_allowed_slippage`=47, `max_allocation_per_position`=15, `cooldown`=8, `stop_loss`=4, `abnormal_price_move_veto`=1
+Baseline guard hit counts (vetoes, not equity): `max_actions_per_day`=67, `max_band_width`=55, `max_allowed_slippage`=47, `wash_volume_veto`=40, `max_allocation_per_position`=15, `cooldown`=8, `stop_loss`=4, `abnormal_price_move_veto`=1
 
 - `cooldown_seconds`: equity lost when disabled `153.90`, extra drawdown `0.1345`
+- `combo:caps+liquidity+abnormal (spray)`: equity lost when disabled `130.90`, extra drawdown `0.1587`
 - `max_allocation_per_position`: equity lost when disabled `16.77`, extra drawdown `0.0142`
 - `stop_loss`: equity lost when disabled `6.05`, extra drawdown `0.0181`
 - `max_actions_per_day`: equity lost when disabled `1.14`, extra drawdown `0.0000`
@@ -71,7 +72,6 @@ Baseline guard hit counts (vetoes, not equity): `max_actions_per_day`=67, `max_b
 - `kill_switch`: equity lost when disabled `0.00`, extra drawdown `0.0000`
 - `wash_volume_veto`: equity lost when disabled `0.00`, extra drawdown `0.0000`
 - `combo:band_width+slippage+abnormal_move`: equity lost when disabled `0.00`, extra drawdown `0.0000`
-- `combo:caps+liquidity+abnormal (spray)`: equity lost when disabled `-12.30`, extra drawdown `0.0951`
 
 Largest economic backstop in this simulation: **`cooldown_seconds`** (equity lost when disabled `153.90`).
 
@@ -94,6 +94,6 @@ A near-zero or negative value means the score is not yet a reliable after-cost p
 
 ## Next evidence-backed change
 
-Do **not** climb rank correlation with the public stub. Next change should be the weight or guard that improves
-`score_predictive_of_net_return` and terminal equity on a held-out snapshot seed, while keeping HOLD-first churn at or below baseline.
+See `reports/experiment_active_tvl.md` for the latest held-out ship gate
+(tight wash veto; active TVL remains off). Do not re-enable `use_active_tvl` on this tape.
 

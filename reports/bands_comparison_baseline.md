@@ -56,7 +56,7 @@ Matching the public stub's numerical mix is not the same as improving net return
 Ablation uses an eager policy (low OPEN threshold, no cost-advantage HOLD) so guards are the last line of authority.
 Single-guard leave-one-out is often flat when remaining rules still block the same pool; a combo row tests that overlap.
 
-Baseline guard hit counts (vetoes, not equity): `max_allocation_per_position`=92, `max_actions_per_day`=85, `max_band_width`=49, `max_allowed_slippage`=43, `cooldown`=9, `stop_loss`=4
+Baseline guard hit counts (vetoes, not equity): `max_allocation_per_position`=92, `max_actions_per_day`=85, `max_band_width`=49, `max_allowed_slippage`=43, `wash_volume_veto`=39, `cooldown`=9, `stop_loss`=4
 
 - `stop_loss`: equity lost when disabled `25.05`, extra drawdown `0.0259`
 - `cooldown_seconds`: equity lost when disabled `3.21`, extra drawdown `0.0103`
@@ -71,7 +71,7 @@ Baseline guard hit counts (vetoes, not equity): `max_allocation_per_position`=92
 - `kill_switch`: equity lost when disabled `0.00`, extra drawdown `0.0000`
 - `wash_volume_veto`: equity lost when disabled `0.00`, extra drawdown `0.0000`
 - `combo:band_width+slippage+abnormal_move`: equity lost when disabled `0.00`, extra drawdown `0.0000`
-- `combo:caps+liquidity+abnormal (spray)`: equity lost when disabled `-261.43`, extra drawdown `-0.0526`
+- `combo:caps+liquidity+abnormal (spray)`: equity lost when disabled `-95.39`, extra drawdown `-0.0239`
 
 Largest economic backstop in this simulation: **`stop_loss`** (equity lost when disabled `25.05`).
 
@@ -94,6 +94,6 @@ A near-zero or negative value means the score is not yet a reliable after-cost p
 
 ## Next evidence-backed change
 
-Do **not** climb rank correlation with the public stub. Next change should be the weight or guard that improves
-`score_predictive_of_net_return` and terminal equity on a held-out snapshot seed, while keeping HOLD-first churn at or below baseline.
+See `reports/experiment_active_tvl.md` for the latest held-out ship gate
+(tight wash veto; active TVL remains off). Do not re-enable `use_active_tvl` on this tape.
 
