@@ -12,13 +12,14 @@ SAMPLE_HYDRATION_PAYLOAD = r"""
 cd:["$","$Ld9",null,{"initialTrendingFeed":{"items":[{"type":"bounty","pool":"bounties","score":0.5,"bounty":{"taskId":"a6ea9c50-4834-468a-8e2d-3cf8f3a4a57b","creatorAddress":"GaeRnNAUPGsMTSXXnJeuaiduofB5vZJe4hRZcDnwQknZ","title":"Launch an AI Trading Agent Bot","bodyMarkdown":"Build an autonomous trading bot on Solana.","criteria":[{"id":"c1","text":"Must be an open source AI agent","required":true,"order":0}],"rewardTotalUsd":1500.50,"status":"OPEN","rewardVaultAddress":"otqiFmf3V5gzFq3A8UjDYNUUqMixoUytaqvLLQtPy88","pumpBountiesProgramId":"goGzNYTYkSEe4hUqz6dPmY5uf3CTt36AQAoujXDrKiV","onChainBountyId":"bounty_001"}},{"type":"bounty","pool":"bounties","score":0.4,"bounty":{"taskId":"b7fa9c50-4834-468a-8e2d-3cf8f3a4a57c","creatorAddress":"FaecFc2Kgb4i1gUvnzK66Wk5nkZS1Cy95mWnbznsAPeY","title":"Shave head in front of bank","bodyMarkdown":"Physical stunt in Bangkok.","criteria":[],"rewardTotalUsd":250.00,"status":"CLOSED","rewardVaultAddress":"23gpicmgN4SCe16dKouAZa3UnYKgVGZw76ir5dZHcy5b","pumpBountiesProgramId":"goGzNYTYkSEe4hUqz6dPmY5uf3CTt36AQAoujXDrKiV","onChainBountyId":"bounty_002"}}]}}]
 """
 
+_HYDRATION_ESCAPED = SAMPLE_HYDRATION_PAYLOAD.strip().replace("\n", "").replace('"', '\\"')
 SAMPLE_HTML = f"""
 <!DOCTYPE html>
 <html>
 <head><title>Pump.fun GO</title></head>
 <body>
 <script>self.__next_f.push([1,"junk"])</script>
-<script>self.__next_f.push([2,"{SAMPLE_HYDRATION_PAYLOAD.strip().replace(chr(10), '').replace('"', r'\"')}"])</script>
+<script>self.__next_f.push([2,"{_HYDRATION_ESCAPED}"])</script>
 </body>
 </html>
 """

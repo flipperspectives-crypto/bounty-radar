@@ -18,8 +18,10 @@ Standard library only. No third-party dependencies.
 | `.well-known/agent-card.json` | A2A Agent Card specification |
 | `pumpfun.py` | Pump.fun GO parser: SSR hydration stream extraction, criteria tagging, and escrow validation |
 | `market_sentinel.py` | Market Sentinel: Real-time SOL spot price & RSI entry zone alerts dispatched to Discord |
+| `bands_compare/` | Separate DLMM/pool-analysis lane: opportunity score, HOLD-first action policy, hard guards, Mr Bands comparator. Research-only (no signing, no live funds). Weights are an independent baseline, not private coefficients. |
 | `test_pumpfun.py` | Offline unit tests for Pump.fun GO parsing, validation, and classification |
 | `test_market_sentinel.py` | Offline unit tests for Market Sentinel price polling and entry zone detection |
+| `tests/test_*bands*` | Offline tests for the DLMM comparator lane |
 | `test_radar.py` | Offline tests for delivery lifecycle, migration, and poller |
 | `test_a2a_server.py` | Offline tests for A2A routing, JSON-RPC errors, skills, and SSRF defense |
 | `test_integration_pipeline.py` | End-to-end integration flow test |
@@ -88,10 +90,17 @@ Invoke-RestMethod -Uri http://localhost:8080/a2a -Method Post -Body $body -Conte
 
 ## Run tests
 
-Run the complete offline test suite (36 tests, no live network calls):
+Run the complete offline test suite (no live network calls):
 ```powershell
 python -m unittest discover -v
 ```
+
+DLMM / Mr Bands comparator simulation (no real funds, no signatures):
+```bash
+python3 -m bands_compare --baseline --sensitivity
+# or: node battle_test_real_money.mjs
+```
+Reports land in `reports/bands_comparison_baseline.md`, `reports/bands_comparison_baseline.json`, and `reports/weight_sensitivity.csv`.
 
 ## Docker
 

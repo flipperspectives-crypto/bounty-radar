@@ -261,6 +261,17 @@ def main() -> None:
     except Exception as e:
         print(f"{datetime.now(timezone.utc).isoformat()} | market_sentinel warning: {db.sanitize_error(e)}")
 
+    # Separate DLMM / Mr Bands research lane (does not replace sentinel logic;
+    # never signs transactions or deploys live positions).
+    try:
+        from bands_compare.comparator import check_dlmm_lane
+
+        dlmm_msg = check_dlmm_lane()
+        if dlmm_msg:
+            print(f"{datetime.now(timezone.utc).isoformat()} | bands_compare: {dlmm_msg}")
+    except Exception as e:
+        print(f"{datetime.now(timezone.utc).isoformat()} | bands_compare warning: {db.sanitize_error(e)}")
+
 
 def run_cycle() -> None:
     """Execute a single fetch, store, and deliver cycle safely."""
